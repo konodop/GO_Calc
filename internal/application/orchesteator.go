@@ -33,9 +33,11 @@ type Responsetrue struct {
 
 var (
 	id          int = 0
+	agid        int = 0
 	expressions []Expression
 	mu          sync.Mutex
-	// tasks       []agent.Task
+	tasks       = make(map[int]agent.Task)
+	reses       = make(map[int]string)
 )
 
 func ConfigFromEnv() *Config {
@@ -91,14 +93,7 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	id++
-	response := Responsetrue{
-		Id: fmt.Sprintf("%d", id),
-	}
-	json.NewEncoder(w).Encode(response)
-	// aaaaaaaaaaaaaaaaaaaa
+
 	express := request.Expression
 	opn := 0
 	cls := 0
@@ -111,6 +106,14 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	id++
+	response := Responsetrue{
+		Id: fmt.Sprintf("%d", id),
+	}
+	json.NewEncoder(w).Encode(response)
 	mu.Lock()
 	expressions = append(expressions, Expression{ID: id, Status: "started", Result: "NULL"})
 	mu.Unlock()
@@ -258,7 +261,13 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		f := agent.Task{ID: id - 1, Arg1: lefted, Arg2: righted, Operation: q, Operation_time: time.Duration(1 * time.Second)}
+		agid++
+		if agid > 100 {
+			agid = 1
+		}
+		f := agent.Task{ID: agid, Arg1: lefted, Arg2: righted, Operation: q, Operation_time: time.Duration(1 * time.Second)}
+
+		tasks[agid] = f
 		result := agent.Calc(f)
 		express = express[:lt] + result.Result + express[rt:]
 	}
@@ -308,18 +317,63 @@ func ExpressionsHandeler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func TaskHandeler(w http.ResponseWriter, r *http.Request) {
-	response := BadResponse{
-		Result: "Internal Server Error",
-	}
+func getTask(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-	json.NewEncoder(w).Encode(response)
+	if len(tasks) == 0 {
+		response := BadResponse{
+			Result: "Not Found",
+		}
+		w.WriteHeader(404)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	w.WriteHeader(200)
+	for _, i := range tasks {
+		delete(tasks, i.ID)
+		w.WriteHeader(200)
+		json.NewEncoder(w).Encode(i)
+		return
+	}
+
+}
+
+func postResult(w http.ResponseWriter, r *http.Request) {
+	var result agent.Data
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewDecoder(r.Body).Decode(&result); err != nil {
+		response := BadResponse{
+			Result: "Expression is not valid",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(422)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode("a")
+	fmt.Printf("Task ID: %d, Result: %s\n", result.ID, result.Result)
+	reses[id] = result.Result
+	w.WriteHeader(http.StatusOK)
 }
 
 func (a *Application) RunServer() error {
 	http.HandleFunc("/api/v1/calculate", CalcHandler)
 	http.HandleFunc("/api/v1/expressions", ExpressionsHandeler)
-	http.HandleFunc("/intrenal/task", TaskHandeler)
+	http.HandleFunc("/internal/task", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			getTask(w, r)
+		case http.MethodPost:
+			postResult(w, r)
+		default:
+			response := BadResponse{
+				Result: "Method Not Allowed",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(405)
+			json.NewEncoder(w).Encode(response)
+		}
+	})
 	return http.ListenAndServe(":"+a.config.Addr, nil)
 }
