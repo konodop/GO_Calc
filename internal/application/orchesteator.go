@@ -14,7 +14,11 @@ import (
 )
 
 type Config struct {
-	Addr string
+	Addr    string
+	Addtime time.Duration
+	Subtime time.Duration
+	Multime time.Duration
+	Divtime time.Duration
 }
 
 type BadResponse struct {
@@ -33,11 +37,14 @@ type Responsetrue struct {
 
 var (
 	id          int = 0
-	agid        int = 0
 	expressions []Expression
 	mu          sync.Mutex
 	tasks       = make(map[int]agent.Task)
-	reses       = make(map[int]string)
+	reses       = make(map[int]agent.Data)
+	Addtime     = 500 * time.Millisecond
+	Subtime     = 500 * time.Millisecond
+	Multime     = 1 * time.Second
+	Divtime     = 1 * time.Second
 )
 
 func ConfigFromEnv() *Config {
@@ -69,107 +76,7 @@ type Request struct {
 	Expression string `json:"expression"`
 }
 
-func CalcHandler(w http.ResponseWriter, r *http.Request) {
-	request := new(Request)
-	defer r.Body.Close()
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		response := BadResponse{
-			Result: "Expression is not valid",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(422)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-	request.Expression = strings.ReplaceAll(request.Expression, " ", "")
-	re := regexp.MustCompile(`[^0-9\-+/*()]`)
-	if re.MatchString(request.Expression) {
-		response := BadResponse{
-			Result: "Expression is not valid",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(422)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	express := request.Expression
-	opn := 0
-	cls := 0
-	if len(express) == 0 {
-		response := BadResponse{
-			Result: "Expression is not valid",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(422)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	id++
-	response := Responsetrue{
-		Id: fmt.Sprintf("%d", id),
-	}
-	json.NewEncoder(w).Encode(response)
-	mu.Lock()
-	expressions = append(expressions, Expression{ID: id, Status: "started", Result: "NULL"})
-	mu.Unlock()
-	bad_res := 0
-	for i, j := range express {
-		//проверка на скобки
-		if j == '(' {
-			if i+1 < len(express) {
-				if express[i+1] == ')' {
-					bad_res = 1
-					break
-				}
-			}
-			opn++
-		} else if j == ')' {
-			cls++
-		}
-		if opn < cls {
-			bad_res = 1
-			break
-		}
-		// ищем высший знак
-		if j == '+' || j == '*' || j == '/' {
-			if i == 0 || i == len(express)-1 {
-				bad_res = 1
-				break
-			} else if express[i-1] == '(' || express[i+1] == '+' || express[i+1] == '*' || express[i+1] == '/' || express[i+1] == ')' {
-				bad_res = 1
-				break
-			}
-
-		} else if j == '-' {
-			if i == len(express)-1 {
-				bad_res = 1
-				break
-			} else if express[i+1] == '-' || express[i+1] == '+' || express[i+1] == '*' || express[i+1] == '/' || express[i+1] == ')' {
-				bad_res = 1
-				break
-			}
-		}
-	}
-
-	if opn != cls {
-		bad_res = 1
-	}
-
-	if bad_res == 1 {
-		response := BadResponse{
-			Result: "Expression is not valid",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(422)
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
+func Calc(express string, idt int) {
 	for {
 		var s int = 0
 		for i := range len(express) {
@@ -178,22 +85,27 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		var q rune = ' '
+		var dur time.Duration
 		i := s
 		index := 0
 		for i < len(express) && express[i] != ')' {
 			if express[i] == '*' {
 				index = i
+				dur = Multime
 				q = '*'
 				break
 			} else if express[i] == '/' {
 				index = i
 				q = '/'
+				dur = Divtime
 				break
 			} else if express[i] == '+' && q == ' ' {
 				q = '+'
+				dur = Addtime
 				index = i
 			} else if express[i] == '-' && q == ' ' {
 				q = '-'
+				dur = Subtime
 				index = i
 			}
 			i++
@@ -250,33 +162,142 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		lefted, _ := strconv.ParseFloat(left, 64)
 		righted, _ := strconv.ParseFloat(right, 64)
 		if q == '/' && righted == 0 {
-			response := BadResponse{
-				Result: "Cannot divide by zero",
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(422)
-			json.NewEncoder(w).Encode(response)
+			mu.Lock()
+			expressions[id-1].Status = "ended"
+			expressions[id-1].Status = "Cannot divide by 0"
+			mu.Unlock()
 			return
 		} else if q == '-' && len(left) == 0 {
 			break
 		}
-
-		agid++
-		if agid > 100 {
-			agid = 1
+		f := agent.Task{ID: idt, Arg1: lefted, Arg2: righted, Operation: q, Operation_time: dur}
+		tasks[idt] = f
+		r := true
+		var result string
+		for r {
+			for _, i := range reses {
+				if i.ID == idt {
+					result = i.Result
+					delete(reses, i.ID)
+					r = false
+					break
+				}
+			}
 		}
-		f := agent.Task{ID: agid, Arg1: lefted, Arg2: righted, Operation: q, Operation_time: time.Duration(1 * time.Second)}
-
-		tasks[agid] = f
-		result := agent.Calc(f)
-		express = express[:lt] + result.Result + express[rt:]
+		express = express[:lt] + result + express[rt:]
 	}
 
 	result, _ := strconv.ParseFloat(express, 64)
 	mu.Lock()
-	expressions[id-1].Status = "ended"
-	expressions[id-1].Result = strconv.FormatFloat(result, 'f', 6, 64)
+	expressions[idt-1].Status = "ended"
+	expressions[idt-1].Result = strconv.FormatFloat(result, 'f', 6, 64)
 	mu.Unlock()
+}
+
+func CalcHandler(w http.ResponseWriter, r *http.Request) {
+	request := new(Request)
+	defer r.Body.Close()
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		response := BadResponse{
+			Result: "Expression is not valid",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(422)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	request.Expression = strings.ReplaceAll(request.Expression, " ", "")
+	re := regexp.MustCompile(`[^0-9\-+/*()]`)
+	if re.MatchString(request.Expression) {
+		response := BadResponse{
+			Result: "Expression is not valid",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(422)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	express := request.Expression
+
+	opn := 0
+	cls := 0
+	if len(express) == 0 {
+		response := BadResponse{
+			Result: "Expression is not valid",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(422)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	bad_res := 0
+	for i, j := range express {
+		//проверка на скобки
+		if j == '(' {
+			if i+1 < len(express) {
+				if express[i+1] == ')' {
+					bad_res = 1
+					break
+				}
+			}
+			opn++
+		} else if j == ')' {
+			cls++
+		}
+		if opn < cls {
+			bad_res = 1
+			break
+		}
+		// ищем высший знак
+		if j == '+' || j == '*' || j == '/' {
+			if i == 0 || i == len(express)-1 {
+				bad_res = 1
+				break
+			} else if express[i-1] == '(' || express[i+1] == '+' || express[i+1] == '*' || express[i+1] == '/' || express[i+1] == ')' {
+				bad_res = 1
+				break
+			}
+
+		} else if j == '-' {
+			if i == len(express)-1 {
+				bad_res = 1
+				break
+			} else if express[i+1] == '-' || express[i+1] == '+' || express[i+1] == '*' || express[i+1] == '/' || express[i+1] == ')' {
+				bad_res = 1
+				break
+			}
+		}
+	}
+
+	if opn != cls {
+		bad_res = 1
+	}
+
+	if bad_res == 1 {
+		response := BadResponse{
+			Result: "Expression is not valid",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(422)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	id++
+	response := Responsetrue{
+		Id: fmt.Sprintf("%d", id),
+	}
+	json.NewEncoder(w).Encode(response)
+
+	mu.Lock()
+	expressions = append(expressions, Expression{ID: id, Status: "started", Result: "NULL"})
+	mu.Unlock()
+	go Calc(express, id)
 }
 
 func ExpressionsHandeler(w http.ResponseWriter, r *http.Request) {
@@ -327,7 +348,6 @@ func getTask(w http.ResponseWriter, _ *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	w.WriteHeader(200)
 	for _, i := range tasks {
 		delete(tasks, i.ID)
 		w.WriteHeader(200)
@@ -352,9 +372,7 @@ func postResult(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 	json.NewEncoder(w).Encode("a")
-	fmt.Printf("Task ID: %d, Result: %s\n", result.ID, result.Result)
-	reses[id] = result.Result
-	w.WriteHeader(http.StatusOK)
+	reses[id] = result
 }
 
 func (a *Application) RunServer() error {
