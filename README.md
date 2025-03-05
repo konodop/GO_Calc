@@ -1,9 +1,14 @@
 <h1 align="center">веб-сервис<h1\>
     <h2>Описание:</h2>
-    <h3>пользователь отправляет арифметическое выражение по HTTP в формате JSON и получает в ответ его результат в виде JSON.
+    <h3>пользователь отправляет арифметическое выражение по HTTP в формате JSON, а сервис отправляет его на выполнение.
     строка-выражение состоит из односимвольных идентификаторов и знаков арифметических действий.
-    Входящие данные - цифры(рациональные), операции +, -, *, /, операции приоритезации ( ). В случае ошибки записи выражения приложение выдает ошибку.
-    У сервиса endpoint с url-ом /api/v1/calculate
+    Входящие данные - цифры(рациональные), операции +, -, *, /, операции приоритезации ( ). В случае ошибки записи выражения приложение выдает ошибку.</h3>
+    <h3>В сервисе есть две части:
+        <ul dir="auto">
+        <ol>1. Оркестратор, отправляющий агенту задачи</ol>
+        <ol>2. Агент (демон) выполняет простые задачи от оркестратора, а также может выполнять их параллельно.</ol>
+        </ul>
+    У сервиса основной endpoint с url-ом /api/v1/calculate
     </h3>
     <h1>Требования:<h1\>
     <h2>
@@ -26,29 +31,38 @@
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"result":"2.000000"}</pre></div>
 <h3>Можно подставлять другие значения в expression и проверять их<h3\>
 <hr><hr\>
+<h1>Эндпоинты<h1\>
+<h3>Основной для отправки задач<h3\>
+<div class="highlight highlight-source-shell" dir="auto"><pre>/api/v1/calculate</pre></div>
+<h3>Для проверки отправленных задач<h3\>
+<div class="highlight highlight-source-shell" dir="auto"><pre>/api/v1/expressions</pre></div>
+<h3>Получение, а также отправка задачи для выполнения<h3\>
+<div class="highlight highlight-source-shell" dir="auto"><pre>/api/internal/task</pre></div>
+<hr><hr\>
 <h1>Примеры запросов:<h1\>
 <h2>1</h2>
 <h4>
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X POST http://localhost:8080/api/v1/calculate -H "Content-Type: application/json" -d "{\"expression\": \"1-(1000*10)\"}"</pre></div>
 Ответ:
-<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"result":"-9999.000000"}</pre><div class="zeroclipboard-container"></div>
-Статус 200 (ОК), всë правильно.
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"id":"1"}</pre><div class="zeroclipboard-container"></div>
+Статус 201 (Задча отправлена), всë правильно.
 </h4>
 <h2>2</h2>
 <h4>
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X POST http://localhost:8080/api/v1/calculate -H "Content-Type: application/json" -d "{\"expression\": \"1/0\"}"</pre></div>
 Ответ:
-<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"error":"Expression is not valid"}</pre><div class="zeroclipboard-container"></div>
-Ошибка 422 (Unprocessable Entity), так как нельзя делить на ноль.
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"id":"2"}</pre><div class="zeroclipboard-container"></div>
+Статус 201 (Задча отправлена), но оркестратор потом выявит ошибку.
 </h4>
-<h2>Также есть ошибка 500 (Internal Server Error)</h2>
+<h2>Проверка отправленных задач</h2>
 <h4>
-<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"error": "Internal Server Error"}</pre><div class="zeroclipboard-container"></div>
-Появляется она только если произойдёт чудо и в сервере true будет равнятся false
-</h4>
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X GET http://localhost:8080/api/v1/expressions</pre></div>
+Ответ:
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"expressions":[{"id":1,"status":"ended","result":"-9999.000000"},{"id":2,"status":"Cannot divide by 0","result":"NULL"}]}</pre><div class="zeroclipboard-container"></div>
+Видно, что первая задча выполнилась, а во второй есть ошибка
 <hr><hr\>
 <h1>Фронтенд?</h1>
-<h3>Вы можете перейти по вышеуказанным эндпоинтам в браузере и получите ответы от сервера в виде Json, но лучше не переходить на эндпоинд с тасками чтобы случайно не забрать у агента задачу🫥
+<h3>Вы можете перейти по вышеуказанным эндпоинтам в браузере (типо так http://127.0.0.1:8080/api/v1/expressions) и получите ответы от сервера в виде Json, но лучше не переходить на эндпоинт с тасками чтобы случайно не забрать у агента задачу🫥
 </h3>
 <hr><hr\>
 <h1>Состав проекта<h1\>
