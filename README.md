@@ -20,7 +20,7 @@
 <hr><hr\>
 <h1>инструкция для запуска проекта:<h1\>
 <h2>шаг 1 <h2\><h4>скачать веб сервис через git clone
-<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>git clone https://github.com/konodop/Project_go.git</pre></div>
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>git clone https://github.com/konodop/GO_project_second.git</pre></div>
 или просто скачать и распаковать .zip файл из гитхаба если не установлен git
 <h4\>
 <h2>шаг 2<h2\><h4> Запуск сервера. В основной папке с помщью терминала либо git bash ввести команду:<h4\>
