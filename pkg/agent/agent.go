@@ -49,11 +49,10 @@ func New() *Agent {
 }
 
 func Calc(task Task) {
-
 	ans := ""
 	lefted := task.Arg1
 	righted := task.Arg2
-	var q rune = ' '
+	var q rune = task.Operation
 	if q == '*' {
 		ans = strconv.FormatFloat(lefted*righted, 'f', 6, 64)
 	} else if q == '/' {
@@ -80,7 +79,7 @@ func Responder() {
 	defer resp.Body.Close()
 	json.NewDecoder(resp.Body).Decode(&task)
 	for {
-		if threads <= comp_power {
+		if threads < comp_power {
 			go Calc(task)
 			threads++
 			break
