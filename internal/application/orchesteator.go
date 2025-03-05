@@ -163,18 +163,21 @@ func Calc(express string, idt int) {
 		righted, _ := strconv.ParseFloat(right, 64)
 		if q == '/' && righted == 0 {
 			mu.Lock()
-			expressions[id-1].Status = "ended"
 			expressions[id-1].Status = "Cannot divide by 0"
 			mu.Unlock()
 			return
 		} else if q == '-' && len(left) == 0 {
+			express = "-" + right
 			break
 		}
 		f := agent.Task{ID: idt, Arg1: lefted, Arg2: righted, Operation: q, Operation_time: dur}
+		mu.Lock()
 		tasks[idt] = f
+		mu.Unlock()
 		r := true
 		var result string
 		for r {
+			mu.Lock()
 			for _, i := range reses {
 				if i.ID == idt {
 					result = i.Result
@@ -183,10 +186,11 @@ func Calc(express string, idt int) {
 					break
 				}
 			}
+			mu.Unlock()
+			time.Sleep(100 * time.Millisecond)
 		}
 		express = express[:lt] + result + express[rt:]
 	}
-
 	result, _ := strconv.ParseFloat(express, 64)
 	mu.Lock()
 	expressions[idt-1].Status = "ended"
@@ -340,6 +344,8 @@ func ExpressionsHandeler(w http.ResponseWriter, r *http.Request) {
 
 func getTask(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	mu.Lock()
+	defer mu.Unlock()
 	if len(tasks) == 0 {
 		response := BadResponse{
 			Result: "Not Found",
@@ -348,6 +354,7 @@ func getTask(w http.ResponseWriter, _ *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
+
 	for _, i := range tasks {
 		delete(tasks, i.ID)
 		w.WriteHeader(200)
@@ -372,7 +379,9 @@ func postResult(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 	json.NewEncoder(w).Encode("a")
+	mu.Lock()
 	reses[id] = result
+	mu.Unlock()
 }
 
 func (a *Application) RunServer() error {
