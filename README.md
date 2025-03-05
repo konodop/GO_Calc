@@ -28,8 +28,8 @@
 <h2>шаг 3<h2\><h4> Отправка POST-запроса через curl. Снова открываем командную строку с помощью которой можно будет отправлять запросы например:<h4\>
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X POST http://localhost:8080/api/v1/calculate -H "Content-Type: application/json" -d "{\"expression\": \"1+1\"}"</pre></div>
     Ответ:
-<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"result":"2.000000"}</pre></div>
-<h3>Можно подставлять другие значения в expression и проверять их<h3\>
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"id":"1"}</pre></div>
+<h3>Можно подставлять другие значения и проверять их<h3\>
 <hr><hr\>
 <h1>Эндпоинты<h1\>
 <h3>Основной для отправки задач<h3\>
