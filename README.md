@@ -18,6 +18,9 @@
     </ul>
     </h2>
 <hr><hr\>
+<h2>Схема работы:</h2>
+        <img src="https://github.com/konodop/Pics/blob/go/image.png">,
+<hr><hr\>
 <h1>инструкция для запуска проекта:<h1\>
 <h2>шаг 1 <h2\><h4>скачать веб сервис через git clone
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>git clone https://github.com/konodop/GO_project_second.git</pre></div>
