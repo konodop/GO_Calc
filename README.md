@@ -33,6 +33,10 @@
     Ответ:
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"id":"1"}</pre></div>
 <h3>Можно подставлять другие значения и проверять их<h3\>
+<h2>шаг 4<h2\><h4>Смотрим ответ этой задачи<h4\>
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X GET http://localhost:8080/api/v1/expressions?id=1</pre></div>
+    Ответ:
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"id":1,"status":"ended","result":"2.000000"}</pre></div>
 <hr><hr\>
 <h1>Эндпоинты<h1\>
 <h3>Основной для отправки задач<h3\>
