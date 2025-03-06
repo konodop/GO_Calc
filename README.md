@@ -39,6 +39,8 @@
 <div class="highlight highlight-source-shell" dir="auto"><pre>/api/v1/calculate</pre></div>
 <h3>Для проверки отправленных задач<h3\>
 <div class="highlight highlight-source-shell" dir="auto"><pre>/api/v1/expressions</pre></div>
+<h3>Также он умеет выводить по айди отправленную задачу<h3\>
+<div class="highlight highlight-source-shell" dir="auto"><pre>/api/v1/expressions?id={сюда писать id}</pre></div>
 <h3>Получение, а также отправка задачи для выполнения<h3\>
 <div class="highlight highlight-source-shell" dir="auto"><pre>/api/internal/task</pre></div>
 <hr><hr\>
