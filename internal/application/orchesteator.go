@@ -402,6 +402,6 @@ func (a *Application) RunServer() error {
 			json.NewEncoder(w).Encode(response)
 		}
 	})
-	defer fmt.Println("started")
+	fmt.Println("started")
 	return http.ListenAndServe(":"+a.config.Addr, nil)
 }
