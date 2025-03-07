@@ -81,9 +81,11 @@
 <h3>
 <ul>
     <li>cmd/main.go______________________________файл для запуска приложения и сервера</li>
-    <li>internal\aplication\application.go_______файл сервера и обработки ошибок</li>
-    <li>pkg/calculation/calculation.go___________файл самого калькулятора</li>
-    <li>pkg/calculation/calculation.go___________файл тестов калькулятора</li>
+    <li>internal\aplication\orchestrator.go_______файл оркестратора</li>
+
+<li>internal\aplication\orchestrator_test.go_______файл тестов оркестратора</li>
+    <li>pkg/calculation/agent.go___________файл агента</li>
+    <li>pkg/calculation/agent_test.go___________файл тестов агента</li>
     <li>go.mod___________________________________модуль соединяющий остальные файлы</li>
     </ul>
 <h3\>
