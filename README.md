@@ -82,12 +82,12 @@
 <h1>Состав проекта<h1\>
 <h3>
 <ul>
-    <li>cmd/main.go______________________________файл для запуска приложения и сервера</li>
+    <li>cmd/main.go______________________________файл для запуска оркестратора</li>
+    <li>cmd/main.go______________________________файл для запуска агента</li>
     <li>internal\aplication\orchestrator.go_______файл оркестратора</li>
-
-<li>internal\aplication\orchestrator_test.go_______файл тестов оркестратора</li>
-    <li>pkg/calculation/agent.go___________файл агента</li>
-    <li>pkg/calculation/agent_test.go___________файл тестов агента</li>
-    <li>go.mod___________________________________модуль соединяющий остальные файлы</li>
+    <li>internal\aplication\orchestrator_test.go__файл тестов оркестратора</li>
+    <li>pkg/calculation/agent.go_________________файл агента</li>
+    <li>pkg/calculation/agent_test.go____________файл тестов агента</li>
+    <li>go.mod____________________________________модуль соединяющий остальные файлы</li>
     </ul>
 <h3\>
