@@ -27,13 +27,15 @@
 или просто скачать и распаковать .zip файл из гитхаба если не установлен git
 <h4\>
 <h2>шаг 2<h2\><h4> Запуск сервера. В основной папке с помщью терминала либо git bash ввести команду:<h4\>
-<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>go run ./cmd/main.go</pre></div>
-<h2>шаг 3<h2\><h4> Отправка POST-запроса через curl. Снова открываем командную строку с помощью которой можно будет отправлять запросы например:<h4\>
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>go run ./cmd/orchestrator/main.go</pre></div>
+<h2>шаг 3<h2\><h4> Запуск агента. В той же папке с помщью терминала либо git bash ввести команду (не закрывать прошлый шаг, а в новом терминале запускать):<h4\>
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>go run ./cmd/agent/main.go</pre></div>
+<h2>шаг 4<h2\><h4> Отправка POST-запроса через curl. Снова открываем командную строку с помощью которой можно будет отправлять запросы например:<h4\>
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X POST http://localhost:8080/api/v1/calculate -H "Content-Type: application/json" -d "{\"expression\": \"1+1\"}"</pre></div>
     Ответ:
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"id":"1"}</pre></div>
 <h3>Можно подставлять другие значения и проверять их<h3\>
-<h2>шаг 4<h2\><h4>Смотрим ответ этой задачи<h4\>
+<h2>шаг 5<h2\><h4>Смотрим ответ этой задачи<h4\>
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X GET http://localhost:8080/api/v1/expressions?id=1</pre></div>
     Ответ:
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"id":1,"status":"ended","result":"2.000000"}</pre></div>
