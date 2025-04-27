@@ -2,6 +2,8 @@ package application
 
 import (
 	"calc/pkg/agent"
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Config struct {
@@ -36,9 +40,11 @@ type Responsetrue struct {
 // глобальные переменные
 
 var (
-	id          int = 0
+	db, err     = sql.Open("sqlite3", "store.db")
+	ctx         = context.TODO()
 	expressions []Expression
 	mu          sync.Mutex
+	id          = 0
 	tasks       = make(map[int]agent.Task)
 	reses       = make(map[int]agent.Data)
 	Addtime     = 500 * time.Millisecond
@@ -72,8 +78,64 @@ type Expression struct {
 	Result string `json:"result"`
 }
 
+type FullExpression struct {
+	ID         int64  `json:"id"`
+	Status     string `json:"status"`
+	Result     string `json:"result"`
+	Expression string `json:"expression"`
+	UserID     int64  `json:"userid"`
+}
+
 type Request struct {
 	Expression string `json:"expression"`
+}
+
+func createTables(ctx context.Context, db *sql.DB) error {
+	const (
+		usersTable = `
+		CREATE TABLE IF NOT EXISTS users(
+			id INTEGER PRIMARY KEY AUTOINCREMENT, 
+			login TEXT,
+			password TEXT
+		);`
+
+		expressionsTable = `
+	CREATE TABLE IF NOT EXISTS expressions(
+		id INTEGER PRIMARY KEY AUTOINCREMENT, 
+		status TEXT,
+		result TEXT,
+		expression TEXT NOT NULL,
+		user_id INTEGER NOT NULL,
+
+		FOREIGN KEY (user_id)  REFERENCES expressions (id)
+	);`
+	)
+
+	if _, err := db.ExecContext(ctx, usersTable); err != nil {
+		return err
+	}
+
+	if _, err := db.ExecContext(ctx, expressionsTable); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func insertExpression(ctx context.Context, db *sql.DB, expression *FullExpression) (int64, error) {
+	var q = `
+	INSERT INTO expressions (status, result, expression, user_id) values ($1, $2, $3, $4)
+	`
+	result, err := db.ExecContext(ctx, q, expression.Status, expression.Result, expression.Expression, expression.UserID)
+	if err != nil {
+		return 0, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
 }
 
 func Calc(express string, idt int) {
@@ -163,7 +225,7 @@ func Calc(express string, idt int) {
 		righted, _ := strconv.ParseFloat(right, 64)
 		if q == '/' && righted == 0 {
 			mu.Lock()
-			expressions[id-1].Status = "Cannot divide by 0"
+			expressions[idt-1].Status = "Cannot divide by 0"
 			mu.Unlock()
 			return
 		} else if q == '-' && len(left) == 0 {
@@ -290,18 +352,30 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mu.Lock()
+
+	ex := &FullExpression{
+		Status:     "started",
+		Result:     "NULL",
+		Expression: express,
+		UserID:     0,
+	}
+	expressionID, err := insertExpression(ctx, db, ex)
+	if err != nil {
+		panic(err)
+	}
+	ex.ID = expressionID
+	exp := Expression{ID: int(expressionID), Status: "started", Result: "NULL"}
+	expressions = append(expressions, exp)
+	mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
 	id++
+	w.WriteHeader(201)
 	response := Responsetrue{
-		Id: fmt.Sprintf("%d", id),
+		Id: fmt.Sprintf("%d", expressionID),
 	}
 	json.NewEncoder(w).Encode(response)
-
-	mu.Lock()
-	expressions = append(expressions, Expression{ID: id, Status: "started", Result: "NULL"})
-	mu.Unlock()
-	go Calc(express, id)
+	go Calc(express, int(expressionID))
 }
 
 func ExpressionsHandeler(w http.ResponseWriter, r *http.Request) {
@@ -385,6 +459,18 @@ func postResult(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Application) RunServer() error {
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	err = db.PingContext(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	if err = createTables(ctx, db); err != nil {
+		panic(err)
+	}
 	http.HandleFunc("/api/v1/calculate", CalcHandler)
 	http.HandleFunc("/api/v1/expressions", ExpressionsHandeler)
 	http.HandleFunc("/internal/task", func(w http.ResponseWriter, r *http.Request) {
