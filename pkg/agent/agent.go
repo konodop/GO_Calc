@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -88,6 +89,7 @@ func Responder() {
 }
 
 func (a *Agent) RunAgent() error {
+	fmt.Println("агент запущен")
 	comp_power = a.config.COMPUTING_POWER
 	for {
 		Responder()
