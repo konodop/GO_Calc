@@ -40,17 +40,15 @@ type Responsetrue struct {
 // глобальные переменные
 
 var (
-	db, err     = sql.Open("sqlite3", "store.db")
-	ctx         = context.TODO()
-	expressions []Expression
-	mu          sync.Mutex
-	id          = 0
-	tasks       = make(map[int]agent.Task)
-	reses       = make(map[int]agent.Data)
-	Addtime     = 500 * time.Millisecond
-	Subtime     = 500 * time.Millisecond
-	Multime     = 1 * time.Second
-	Divtime     = 1 * time.Second
+	db, err = sql.Open("sqlite3", "store.db")
+	ctx     = context.TODO()
+	mu      sync.Mutex
+	tasks   = make(map[int]agent.Task)
+	reses   = make(map[int]agent.Data)
+	Addtime = 500 * time.Millisecond
+	Subtime = 500 * time.Millisecond
+	Multime = 1 * time.Second
+	Divtime = 1 * time.Second
 )
 
 func ConfigFromEnv() *Config {
@@ -130,15 +128,62 @@ func insertExpression(ctx context.Context, db *sql.DB, expression *FullExpressio
 	if err != nil {
 		return 0, err
 	}
-	id, err := result.LastInsertId()
+	iD, err := result.LastInsertId()
 	if err != nil {
 		return 0, err
 	}
 
-	return id, nil
+	return iD, nil
+}
+
+func update_result(ctx context.Context, db *sql.DB, expression *FullExpression) error {
+	var q = `
+	UPDATE expressions SET status = $1, result = $2 WHERE id = $3
+	`
+	_, err := db.ExecContext(ctx, q, expression.Status, expression.Result, expression.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getExpression(ctx context.Context, db *sql.DB, expression_id int64) (*FullExpression, error) {
+	var q = `
+	SELECT * FROM expressions WHERE id = $1
+	`
+	var expression FullExpression
+	err := db.QueryRowContext(ctx, q, expression_id).Scan(&expression.ID, &expression.Status, &expression.Result, &expression.Expression, &expression.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &expression, nil
+}
+
+func getExpressions(ctx context.Context, db *sql.DB, user_id int64) ([]FullExpression, error) {
+	var q = `
+	SELECT * FROM expressions WHERE user_id = $1
+	`
+	var expressions []FullExpression
+	rows, err := db.QueryContext(ctx, q, user_id)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		e := FullExpression{}
+		err := rows.Scan(&e.ID, &e.Status, &e.Result, &e.Expression, &e.UserID)
+		if err != nil {
+			return nil, err
+		}
+		expressions = append(expressions, e)
+	}
+
+	return expressions, nil
 }
 
 func Calc(express string, idt int) {
+	status := "started"
 	for {
 		var s int = 0
 		for i := range len(express) {
@@ -224,10 +269,9 @@ func Calc(express string, idt int) {
 		lefted, _ := strconv.ParseFloat(left, 64)
 		righted, _ := strconv.ParseFloat(right, 64)
 		if q == '/' && righted == 0 {
-			mu.Lock()
-			expressions[idt-1].Status = "Cannot divide by 0"
-			mu.Unlock()
-			return
+			status = "Cannot divide by 0"
+			express = "-1"
+			break
 		} else if q == '-' && len(left) == 0 {
 			express = "-" + right
 			break
@@ -254,10 +298,28 @@ func Calc(express string, idt int) {
 		express = express[:lt] + result + express[rt:]
 	}
 	result, _ := strconv.ParseFloat(express, 64)
+	if status == "started" {
+		status = "ended"
+	}
 	mu.Lock()
-	expressions[idt-1].Status = "ended"
-	expressions[idt-1].Result = strconv.FormatFloat(result, 'f', 6, 64)
+	expres, err := getExpression(ctx, db, int64(idt))
 	mu.Unlock()
+	if err != nil {
+		panic(err)
+	}
+	res := strconv.FormatFloat(result, 'f', 6, 64)
+
+	ex := &FullExpression{
+		ID:     expres.ID,
+		Status: status,
+		Result: res,
+	}
+	mu.Lock()
+	err = update_result(ctx, db, ex)
+	mu.Unlock()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func CalcHandler(w http.ResponseWriter, r *http.Request) {
@@ -352,24 +414,19 @@ func CalcHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mu.Lock()
-
 	ex := &FullExpression{
 		Status:     "started",
 		Result:     "NULL",
 		Expression: express,
 		UserID:     0,
 	}
+	mu.Lock()
 	expressionID, err := insertExpression(ctx, db, ex)
+	mu.Unlock()
 	if err != nil {
 		panic(err)
 	}
-	ex.ID = expressionID
-	exp := Expression{ID: int(expressionID), Status: "started", Result: "NULL"}
-	expressions = append(expressions, exp)
-	mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	id++
 	w.WriteHeader(201)
 	response := Responsetrue{
 		Id: fmt.Sprintf("%d", expressionID),
@@ -391,7 +448,14 @@ func ExpressionsHandeler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(response)
 			return
 		}
-		if idr > id || idr <= 0 {
+
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM expressions").Scan(&count)
+		if err != nil {
+			panic(err)
+		}
+
+		if idr > count || idr <= 0 {
 			response := BadResponse{
 				Result: "Not Found",
 			}
@@ -401,7 +465,7 @@ func ExpressionsHandeler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		mu.Lock()
-		expression := expressions[idr-1]
+		expression, _ := getExpression(ctx, db, int64(idr))
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -409,8 +473,19 @@ func ExpressionsHandeler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 		mu.Lock()
-		response := map[string][]Expression{"expressions": expressions}
+		expressions, _ := getExpressions(ctx, db, 0)
 		mu.Unlock()
+		var exprs []Expression
+		for _, expression := range expressions {
+			a := Expression{
+				ID:     int(expression.ID),
+				Status: expression.Status,
+				Result: expression.Result,
+			}
+			exprs = append(exprs, a)
+
+		}
+		response := map[string][]Expression{"expressions": exprs}
 		w.WriteHeader(200)
 		json.NewEncoder(w).Encode(response)
 	}
@@ -454,7 +529,7 @@ func postResult(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	json.NewEncoder(w).Encode("a")
 	mu.Lock()
-	reses[id] = result
+	reses[result.ID] = result
 	mu.Unlock()
 }
 
@@ -488,6 +563,6 @@ func (a *Application) RunServer() error {
 			json.NewEncoder(w).Encode(response)
 		}
 	})
-	fmt.Println("started")
+	fmt.Println("оркестратор запущен")
 	return http.ListenAndServe(":"+a.config.Addr, nil)
 }
