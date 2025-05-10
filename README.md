@@ -30,13 +30,17 @@
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>go run ./cmd/orchestrator/main.go</pre></div>
 <h2>шаг 3<h2\><h4> Запуск агента. В той же папке с помщью терминала либо git bash ввести команду (не закрывать прошлый шаг, а в новом терминале запускать):<h4\>
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>go run ./cmd/agent/main.go</pre></div>
-<h2>шаг 4<h2\><h4> Отправка POST-запроса через curl. Снова открываем командную строку с помощью которой можно будет отправлять запросы например:<h4\>
-<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X POST http://localhost:8080/api/v1/calculate -H "Content-Type: application/json" -d "{\"expression\": \"1+1\"}"</pre></div>
+<h2>шаг 4<h2\><h4>Снова открываем командную строку с помощью которой можно будет отправлять запросы. Регистрация:<h4\>
+    <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X POST http://localhost:8080/api/v1/register -H "Content-Type: application/json" -d "{\"login\": \"user\", \"password\": \"1234\"}"</pre></div>
+    Ответ:
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>Ваш токен</pre></div>
+<h2>шаг 5<h2\><h4> Отправка POST-запроса через curl.<h4\>
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X POST http://localhost:8080/api/v1/calculate -H "Content-Type: application/json" -H "Authorization: <Ваш токен>" -d "{\"expression\": \"1+1\"}"</pre></div>
     Ответ:
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"id":"1"}</pre></div>
 <h3>Можно подставлять другие значения и проверять их<h3\>
-<h2>шаг 5<h2\><h4>Смотрим ответ этой задачи<h4\>
-<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X GET http://localhost:8080/api/v1/expressions?id=1</pre></div>
+<h2>шаг 6<h2\><h4>Смотрим ответ этой задачи<h4\>
+<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>curl -X GET http://localhost:8080/api/v1/expressions -H "Authorization: <Ваш токен>"</pre></div>
     Ответ:
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"id":1,"status":"ended","result":"2.000000"}</pre></div>
 <hr><hr\>
@@ -49,6 +53,10 @@
 <div class="highlight highlight-source-shell" dir="auto"><pre>/api/v1/expressions?id={сюда писать id}</pre></div>
 <h3>Получение, а также отправка задачи для выполнения<h3\>
 <div class="highlight highlight-source-shell" dir="auto"><pre>/api/internal/task</pre></div>
+<h3>Регистрация пользователя<h3\>
+<div class="highlight highlight-source-shell" dir="auto"><pre>/api/v1/register</pre></div>
+<h3>Вход в аккаунт<h3\>
+<div class="highlight highlight-source-shell" dir="auto"><pre>/api/v1/login</pre></div>
 <hr><hr\>
 <h1>Примеры запросов:<h1\>
 <h2>1</h2>
@@ -72,7 +80,7 @@
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>{"expressions":[{"id":1,"status":"ended","result":"-9999.000000"},{"id":2,"status":"Cannot divide by 0","result":"NULL"}]}</pre><div class="zeroclipboard-container"></div>
 Видно, что первая задча выполнилась, а во второй есть ошибка
 <hr><hr\>
-<h1>Фронтенд</h1>
+<h1>Фронтенд(WIP)</h1>
 <h4>позволяет по url (http://localhost:8081/) видеть отправленные задачи. Чтобы его увидеть запустите front.exe или бинарный файл или напишите эту команду в папке cmd/front:<h4\>
 <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>go run ./front.go</pre></div>
 </h3>
